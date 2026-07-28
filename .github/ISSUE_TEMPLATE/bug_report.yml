@@ -1,0 +1,57 @@
+name: Bug report
+description: Сообщить о воспроизводимой ошибке YenSTT
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Спасибо за сообщение. Не прикладывайте записи или логи с конфиденциальными данными.
+  - type: input
+    id: version
+    attributes:
+      label: Версия YenSTT
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Версия Windows
+      options:
+        - Windows 11
+        - Windows 10
+        - Другая
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Что произошло
+      description: Опишите фактическое и ожидаемое поведение.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Запустить...
+        2. Нажать...
+        3. Увидеть...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи
+      description: Вставьте релевантный фрагмент из `%APPDATA%\YenSTT\logs`, удалив личные данные.
+      render: text
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Проверка
+      options:
+        - label: Я проверил, что похожая проблема ещё не зарегистрирована.
+          required: true
+        - label: Я удалил из логов личные и конфиденциальные данные.
+          required: true

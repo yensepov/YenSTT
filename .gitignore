@@ -1,0 +1,33 @@
+# .NET build output
+bin/
+obj/
+publish/
+artifacts/
+
+# Generated PyInstaller files
+packaging-*/
+*.spec.bak
+
+# IDE and local agent settings
+.vs/
+.vscode/
+.idea/
+.claude/
+*.user
+*.suo
+
+# Local runtime data and logs
+*.log
+*.wav
+*.pdb
+models/
+audio_logs/
+
+# Generated previews
+Resources/*-from-publish.png
+Resources/app-icon-running-exe.png
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
