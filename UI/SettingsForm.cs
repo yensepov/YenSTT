@@ -12,9 +12,7 @@ public class SettingsForm : Form
     private readonly AppConfig _config;
 
     // Local recognition controls
-    private TextBox? _whisperModelTextBox;
     private TextBox? _hintsTextBox;
-    private NumericUpDown? _localTimeoutNumeric;
 
     // Recording Controls
     private ComboBox? _languageComboBox;
@@ -24,8 +22,6 @@ public class SettingsForm : Form
     private CheckBox? _autoStopSilenceCheckBox;
     private NumericUpDown? _silenceThresholdNumeric;
     private CheckBox? _playSoundOnLimitCheckBox;
-    private CheckBox? _enableChunkingCheckBox;
-    private NumericUpDown? _chunkSizeNumeric;
 
     // Hotkey Controls
     private ComboBox? _hotkeyModifiersComboBox;
@@ -64,7 +60,7 @@ public class SettingsForm : Form
     private void InitializeComponents()
     {
         Text = "Настройки YenSTT";
-        Size = new Size(520, 830);
+        Size = new Size(620, 780);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -80,81 +76,49 @@ public class SettingsForm : Form
         var y = 10;
         const int rowHeight = 26;
         const int spacing = 6;
-        const int groupWidth = 480;
+        const int groupWidth = 580;
 
         // === Local Recognition Group ===
-        var localGroup = CreateGroupBox("Локальное распознавание", 10, y, groupWidth, 170);
-
-        CreateLabel("Модель:", 15, 22, 100, localGroup);
-        _whisperModelTextBox = new TextBox
-        {
-            Location = new Point(115, 19),
-            Size = new Size(120, 23),
-            Text = "small",
-            ReadOnly = true,
-            Parent = localGroup
-        };
+        var localGroup = CreateGroupBox("Распознавание", 10, y, groupWidth, 115);
 
         var modeLabel = new Label
         {
-            Text = "CPU · int8 · аудио остаётся на компьютере",
-            Location = new Point(245, 22),
-            Size = new Size(215, 20),
+            Text = "faster-whisper small · CPU int8",
+            Location = new Point(15, 24),
+            Size = new Size(300, 20),
             ForeColor = Color.DarkGreen,
             Parent = localGroup
         };
 
-        CreateLabel("Движок:", 15, 52, 100, localGroup);
-        var runtimeTextBox = new TextBox
+        var privacyLabel = new Label
         {
-            Location = new Point(115, 49),
-            Size = new Size(240, 23),
-            Text = "Встроенный faster-whisper 1.2.1",
-            ReadOnly = true,
+            Text = "Распознавание выполняется локально. Аудио не отправляется в интернет.",
+            Location = new Point(15, 47),
+            Size = new Size(540, 20),
+            ForeColor = Color.DimGray,
             Parent = localGroup
         };
 
         _testLocalButton = new Button
         {
-            Text = "Проверить",
-            Location = new Point(365, 48),
-            Size = new Size(90, 25),
+            Text = "Проверить движок",
+            Location = new Point(405, 19),
+            Size = new Size(150, 28),
             Parent = localGroup
         };
         _testLocalButton.Click += TestLocalButton_Click;
 
-        CreateLabel("Таймаут (сек):", 15, 82, 100, localGroup);
-        _localTimeoutNumeric = new NumericUpDown
-        {
-            Location = new Point(115, 79),
-            Size = new Size(80, 23),
-            Minimum = 60,
-            Maximum = 1800,
-            Value = 900,
-            Parent = localGroup
-        };
-
-        CreateLabel("Словарь терминов:", 15, 112, 100, localGroup);
+        CreateLabel("Словарь терминов:", 15, 80, 100, localGroup);
         _hintsTextBox = new TextBox
         {
-            Location = new Point(115, 109),
-            Size = new Size(340, 23),
+            Location = new Point(115, 77),
+            Size = new Size(440, 23),
             PlaceholderText = "Jira, Confluence, API, JSON...",
             Parent = localGroup
         };
 
-        var hintsHelpLabel = new Label
-        {
-            Text = "Термины для улучшения распознавания (через запятую)",
-            Location = new Point(115, 136),
-            Size = new Size(340, 18),
-            ForeColor = Color.Gray,
-            Font = new Font("Segoe UI", 8),
-            Parent = localGroup
-        };
-
         mainPanel.Controls.Add(localGroup);
-        y += 180;
+        y += 125;
 
         // === Recording Settings Group ===
         var recGroup = CreateGroupBox("Настройки записи", 10, y, groupWidth, 175);
@@ -164,7 +128,7 @@ public class SettingsForm : Form
         _languageComboBox = new ComboBox
         {
             Location = new Point(115, recY - 3),
-            Size = new Size(150, 23),
+            Size = new Size(180, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Parent = recGroup
         };
@@ -176,11 +140,11 @@ public class SettingsForm : Form
         _modeComboBox = new ComboBox
         {
             Location = new Point(115, recY - 3),
-            Size = new Size(150, 23),
+            Size = new Size(180, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Parent = recGroup
         };
-        _modeComboBox.Items.AddRange(new object[] { "Push-to-talk", "Toggle" });
+        _modeComboBox.Items.AddRange(new object[] { "Удерживать клавишу", "Старт/стоп по нажатию" });
 
         recY += rowHeight + spacing;
 
@@ -188,7 +152,7 @@ public class SettingsForm : Form
         _microphoneComboBox = new ComboBox
         {
             Location = new Point(115, recY - 3),
-            Size = new Size(340, 23),
+            Size = new Size(440, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Parent = recGroup
         };
@@ -196,7 +160,7 @@ public class SettingsForm : Form
 
         recY += rowHeight + spacing;
 
-        CreateLabel("Макс. длит. (сек):", 15, recY, 100, recGroup);
+        CreateLabel("Лимит (сек):", 15, recY, 100, recGroup);
         _maxDurationNumeric = new NumericUpDown
         {
             Location = new Point(115, recY - 3),
@@ -211,15 +175,17 @@ public class SettingsForm : Form
         {
             Text = "Звук при лимите",
             Location = new Point(195, recY - 3),
-            Size = new Size(130, 23),
+            AutoSize = true,
+            Size = new Size(165, 23),
             Parent = recGroup
         };
 
         _autoStopSilenceCheckBox = new CheckBox
         {
             Text = "Авто-стоп по тишине",
-            Location = new Point(330, recY - 3),
-            Size = new Size(140, 23),
+            Location = new Point(370, recY - 3),
+            AutoSize = true,
+            Size = new Size(180, 23),
             Parent = recGroup
         };
         _autoStopSilenceCheckBox.CheckedChanged += (s, e) =>
@@ -227,7 +193,7 @@ public class SettingsForm : Form
 
         recY += rowHeight + spacing;
 
-        CreateLabel("Порог тишины (сек):", 15, recY, 100, recGroup);
+        CreateLabel("Тишина (сек):", 15, recY, 100, recGroup);
         _silenceThresholdNumeric = new NumericUpDown
         {
             Location = new Point(115, recY - 3),
@@ -239,30 +205,6 @@ public class SettingsForm : Form
             Parent = recGroup
         };
 
-        _enableChunkingCheckBox = new CheckBox
-        {
-            Text = "Чанки для длинных записей",
-            Location = new Point(195, recY - 3),
-            Size = new Size(180, 23),
-            Parent = recGroup
-        };
-        _enableChunkingCheckBox.CheckedChanged += (s, e) =>
-            _chunkSizeNumeric!.Enabled = _enableChunkingCheckBox.Checked;
-
-        recY += rowHeight + spacing;
-
-        CreateLabel("Размер чанка (сек):", 15, recY, 100, recGroup);
-        _chunkSizeNumeric = new NumericUpDown
-        {
-            Location = new Point(115, recY - 3),
-            Size = new Size(70, 23),
-            Minimum = 30,
-            Maximum = 300,
-            Value = 60,
-            Enabled = false,
-            Parent = recGroup
-        };
-
         mainPanel.Controls.Add(recGroup);
         y += 185;
 
@@ -270,11 +212,11 @@ public class SettingsForm : Form
         var hotkeyGroup = CreateGroupBox("Горячая клавиша", 10, y, groupWidth, 55);
         var hkY = 22;
 
-        CreateLabel("Модификаторы:", 15, hkY, 100, hotkeyGroup);
+        CreateLabel("Сочетание:", 15, hkY, 90, hotkeyGroup);
         _hotkeyModifiersComboBox = new ComboBox
         {
-            Location = new Point(115, hkY - 3),
-            Size = new Size(130, 23),
+            Location = new Point(105, hkY - 3),
+            Size = new Size(155, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Parent = hotkeyGroup
         };
@@ -288,11 +230,11 @@ public class SettingsForm : Form
             "Ctrl+Alt+Shift"
         });
 
-        CreateLabel("Клавиша:", 260, hkY, 60, hotkeyGroup);
+        CreateLabel("Клавиша:", 280, hkY, 80, hotkeyGroup);
         _hotkeyKeyComboBox = new ComboBox
         {
-            Location = new Point(325, hkY - 3),
-            Size = new Size(130, 23),
+            Location = new Point(360, hkY - 3),
+            Size = new Size(195, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Parent = hotkeyGroup
         };
@@ -302,21 +244,21 @@ public class SettingsForm : Form
         y += 65;
 
         // === Insertion Settings Group ===
-        var insertGroup = CreateGroupBox("Настройки вставки", 10, y, groupWidth, 100);
+        var insertGroup = CreateGroupBox("Настройки вставки", 10, y, groupWidth, 115);
         var insY = 22;
 
         CreateLabel("Режим вставки:", 15, insY, 100, insertGroup);
         _insertionModeComboBox = new ComboBox
         {
             Location = new Point(115, insY - 3),
-            Size = new Size(200, 23),
+            Size = new Size(300, 23),
             DropDownStyle = ComboBoxStyle.DropDownList,
             Parent = insertGroup
         };
         _insertionModeComboBox.Items.AddRange(new object[]
         {
-            "Буфер обмена + Ctrl+V",
-            "Эмуляция набора (SendInput)"
+            "Через буфер обмена (рекомендуется)",
+            "Посимвольный ввод (совместимость)"
         });
 
         insY += rowHeight + spacing;
@@ -325,7 +267,8 @@ public class SettingsForm : Form
         {
             Text = "Сохранять буфер обмена при вставке",
             Location = new Point(15, insY),
-            Size = new Size(280, 23),
+            AutoSize = true,
+            Size = new Size(520, 23),
             Parent = insertGroup
         };
 
@@ -333,14 +276,15 @@ public class SettingsForm : Form
 
         _showPreviewOnFocusLostCheckBox = new CheckBox
         {
-            Text = "Показывать preview при потере фокуса окна",
+            Text = "Показывать предпросмотр, если окно потеряло фокус",
             Location = new Point(15, insY),
-            Size = new Size(320, 23),
+            AutoSize = true,
+            Size = new Size(520, 23),
             Parent = insertGroup
         };
 
         mainPanel.Controls.Add(insertGroup);
-        y += 110;
+        y += 125;
 
         // === Text Processing Group ===
         var textGroup = CreateGroupBox("Обработка текста", 10, y, groupWidth, 55);
@@ -350,7 +294,8 @@ public class SettingsForm : Form
         {
             Text = "Включить голосовые команды пунктуации (точка, запятая...)",
             Location = new Point(15, textY),
-            Size = new Size(400, 23),
+            AutoSize = true,
+            Size = new Size(540, 23),
             Parent = textGroup
         };
 
@@ -365,6 +310,7 @@ public class SettingsForm : Form
         {
             Text = "Сохранять аудио файлы",
             Location = new Point(15, storeY),
+            AutoSize = true,
             Size = new Size(200, 23),
             Parent = storageGroup
         };
@@ -374,7 +320,7 @@ public class SettingsForm : Form
         _audioLogPathTextBox = new TextBox
         {
             Location = new Point(15, storeY + 25),
-            Size = new Size(450, 23),
+            Size = new Size(550, 23),
             Enabled = false,
             Parent = storageGroup
         };
@@ -387,7 +333,8 @@ public class SettingsForm : Form
         {
             Text = "Режим отладки (подробные логи)",
             Location = new Point(15, y),
-            Size = new Size(250, 23),
+            AutoSize = true,
+            Size = new Size(350, 23),
             Parent = mainPanel
         };
         y += 35;
@@ -396,7 +343,7 @@ public class SettingsForm : Form
         _statusLabel = new Label
         {
             Location = new Point(15, y),
-            Size = new Size(280, 20),
+            Size = new Size(375, 20),
             ForeColor = Color.Gray,
             Parent = mainPanel
         };
@@ -405,8 +352,8 @@ public class SettingsForm : Form
         _saveButton = new Button
         {
             Text = "Сохранить",
-            Location = new Point(290, y),
-            Size = new Size(90, 28),
+            Location = new Point(375, y),
+            Size = new Size(100, 28),
             Parent = mainPanel
         };
         _saveButton.Click += SaveButton_Click;
@@ -414,8 +361,8 @@ public class SettingsForm : Form
         _cancelButton = new Button
         {
             Text = "Отмена",
-            Location = new Point(390, y),
-            Size = new Size(90, 28),
+            Location = new Point(485, y),
+            Size = new Size(100, 28),
             Parent = mainPanel
         };
         _cancelButton.Click += (s, e) => Close();
@@ -478,8 +425,6 @@ public class SettingsForm : Form
     private void LoadSettings()
     {
         // Local recognition
-        _whisperModelTextBox!.Text = _config.WhisperModel;
-        _localTimeoutNumeric!.Value = Math.Clamp(_config.LocalWhisperTimeoutSeconds, 60, 1800);
         _hintsTextBox!.Text = _config.HintsDictionary ?? "";
 
         // Language
@@ -501,9 +446,6 @@ public class SettingsForm : Form
         _silenceThresholdNumeric!.Value = _config.SilenceThresholdSeconds;
         _silenceThresholdNumeric.Enabled = _config.AutoStopOnSilence;
         _playSoundOnLimitCheckBox!.Checked = _config.PlaySoundOnLimit;
-        _enableChunkingCheckBox!.Checked = _config.EnableChunking;
-        _chunkSizeNumeric!.Value = _config.ChunkSizeSeconds;
-        _chunkSizeNumeric.Enabled = _config.EnableChunking;
 
         // Insertion
         _insertionModeComboBox!.SelectedIndex = _config.InsertionMode == InsertionMode.Clipboard ? 0 : 1;
@@ -525,8 +467,6 @@ public class SettingsForm : Form
     private void SaveSettings()
     {
         // Local recognition
-        _config.WhisperModel = "small";
-        _config.LocalWhisperTimeoutSeconds = (int)_localTimeoutNumeric!.Value;
         _config.HintsDictionary = _hintsTextBox!.Text.Trim();
 
         // Language
@@ -548,8 +488,6 @@ public class SettingsForm : Form
         _config.AutoStopOnSilence = _autoStopSilenceCheckBox!.Checked;
         _config.SilenceThresholdSeconds = (int)_silenceThresholdNumeric!.Value;
         _config.PlaySoundOnLimit = _playSoundOnLimitCheckBox!.Checked;
-        _config.EnableChunking = _enableChunkingCheckBox!.Checked;
-        _config.ChunkSizeSeconds = (int)_chunkSizeNumeric!.Value;
 
         // Microphone
         if (_microphoneComboBox!.SelectedItem is MicrophoneInfo mic)
@@ -582,15 +520,12 @@ public class SettingsForm : Form
     {
         _testLocalButton!.Enabled = false;
         _testLocalButton.Text = "Проверка...";
-        _statusLabel!.Text = "Проверка Python и faster-whisper...";
+        _statusLabel!.Text = "Проверка встроенного движка...";
         _statusLabel.ForeColor = Color.Gray;
 
         try
         {
-            var tempConfig = new AppConfig
-            {
-                WhisperModel = "small"
-            };
+            var tempConfig = new AppConfig();
             using var service = new API.WhisperService(tempConfig);
             var version = await service.CheckAvailabilityAsync();
             _statusLabel.Text = $"Готово: faster-whisper {version}";
@@ -604,7 +539,7 @@ public class SettingsForm : Form
         finally
         {
             _testLocalButton.Enabled = true;
-            _testLocalButton.Text = "Проверить";
+            _testLocalButton.Text = "Проверить движок";
         }
     }
 

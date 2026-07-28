@@ -257,7 +257,7 @@ public class TextInserter
         try
         {
             // Подготавливаем текст
-            var preparedText = TextProcessor.PrepareForInsertion(text, _config);
+            var preparedText = text;
 
             bool success;
 
@@ -306,7 +306,7 @@ public class TextInserter
         if (string.IsNullOrEmpty(text))
             return;
 
-        var preparedText = TextProcessor.PrepareForInsertion(text, _config);
+        var preparedText = text;
 
         try
         {
@@ -680,7 +680,7 @@ public class TextInserter
         if (string.IsNullOrEmpty(text))
             return new TextInsertionResult { Success = false, Error = "Нет текста для вставки" };
 
-        var preparedText = TextProcessor.PrepareForInsertion(text, _config);
+        var preparedText = text;
         var targetHandle = _targetWindowHandle;
         var targetTitle = _targetWindowTitle;
 

@@ -153,31 +153,6 @@ public static class TextProcessor
     }
 
     /// <summary>
-    /// Добавить форматирование для вставки
-    /// </summary>
-    public static string PrepareForInsertion(string text, AppConfig config)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return text;
-
-        var result = text;
-
-        // Добавить пробел перед
-        if (config.AddSpaceBefore)
-        {
-            result = " " + result;
-        }
-
-        // Добавить пробел после
-        if (config.AddSpaceAfter)
-        {
-            result = result + " ";
-        }
-
-        return result;
-    }
-
-    /// <summary>
     /// Получить список поддерживаемых команд пунктуации для справки
     /// </summary>
     public static string GetCommandsHelp()

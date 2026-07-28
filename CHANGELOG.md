@@ -9,6 +9,12 @@ All notable changes to YenSTT are documented here. The project follows semantic 
 - Fixed UTF-8 communication with the bundled worker, which prevented transcription on Windows.
 - Preserved Cyrillic text returned by faster-whisper.
 
+### Changed
+
+- Simplified settings for the fixed local `small` model and removed obsolete cloud/Python options.
+- Removed the unreliable recording chunk mode and hidden legacy insertion flags.
+- Removed migrated API credential files that YenSTT no longer uses.
+
 ## [1.0.0] - 2026-07-28
 
 ### Added

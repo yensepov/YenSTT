@@ -1,3 +1,5 @@
+using Newtonsoft.Json;
+
 namespace YenSTT.Core;
 
 /// <summary>
@@ -56,35 +58,15 @@ public class AppConfig
     #region Local Recognition Settings
 
     /// <summary>
-    /// Локальная faster-whisper модель.
-    /// </summary>
-    public string WhisperModel { get; set; } = "small";
-
-    /// <summary>
-    /// Необязательный путь к python.exe. Пустое значение включает автоопределение.
-    /// </summary>
-    public string PythonExecutable { get; set; } = string.Empty;
-
-    /// <summary>
     /// Язык распознавания
     /// </summary>
     public RecognitionLanguage Language { get; set; } = RecognitionLanguage.Russian;
-
-    /// <summary>
-    /// Подсказка/контекст для улучшения распознавания (prompt)
-    /// </summary>
-    public string? WhisperPrompt { get; set; }
 
     /// <summary>
     /// Словарь терминов/подсказки для улучшения распознавания специфичных слов
     /// Пример: "Jira, Confluence, API, JSON, PostgreSQL, Kubernetes"
     /// </summary>
     public string? HintsDictionary { get; set; }
-
-    /// <summary>
-    /// Таймаут локального распознавания в секундах. Включает первое скачивание модели.
-    /// </summary>
-    public int LocalWhisperTimeoutSeconds { get; set; } = 900;
 
     #endregion
 
@@ -120,22 +102,13 @@ public class AppConfig
     /// </summary>
     public bool PlaySoundOnLimit { get; set; } = true;
 
-    /// <summary>
-    /// Включить режим чанков (разбиение длинных записей)
-    /// </summary>
-    public bool EnableChunking { get; set; } = false;
-
-    /// <summary>
-    /// Размер чанка в секундах (для длинных записей)
-    /// </summary>
-    public int ChunkSizeSeconds { get; set; } = 60;
-
     #endregion
 
     #region Hotkey Settings
 
     public string HotkeyModifiers { get; set; } = "Ctrl+Alt";
     public string HotkeyKey { get; set; } = "Space";
+    [JsonIgnore]
     public string HotkeyDisplay => $"{HotkeyModifiers}+{HotkeyKey}";
 
     #endregion
@@ -146,21 +119,6 @@ public class AppConfig
     /// Включить голосовые команды пунктуации
     /// </summary>
     public bool EnablePunctuationCommands { get; set; } = true;
-
-    /// <summary>
-    /// Вставлять как plain text
-    /// </summary>
-    public bool InsertAsPlainText { get; set; } = true;
-
-    /// <summary>
-    /// Добавить пробел перед текстом
-    /// </summary>
-    public bool AddSpaceBefore { get; set; } = false;
-
-    /// <summary>
-    /// Добавить пробел после текста
-    /// </summary>
-    public bool AddSpaceAfter { get; set; } = false;
 
     #endregion
 
@@ -180,11 +138,6 @@ public class AppConfig
     /// Показывать preview при потере фокуса окна
     /// </summary>
     public bool ShowPreviewOnFocusLost { get; set; } = true;
-
-    /// <summary>
-    /// Автоматически копировать в буфер если фокус потерян
-    /// </summary>
-    public bool AutoCopyOnFocusLost { get; set; } = false;
 
     #endregion
 
@@ -215,23 +168,13 @@ public class AppConfig
     }
 
     /// <summary>
-    /// Получить полный prompt для Whisper (объединяет prompt и словарь терминов)
+    /// Получить подсказку со словарём терминов для Whisper.
     /// </summary>
     public string GetEffectivePrompt()
     {
-        var parts = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(WhisperPrompt))
-        {
-            parts.Add(WhisperPrompt.Trim());
-        }
-
-        if (!string.IsNullOrWhiteSpace(HintsDictionary))
-        {
-            parts.Add($"Terms: {HintsDictionary.Trim()}");
-        }
-
-        return parts.Count > 0 ? string.Join(" ", parts) : string.Empty;
+        return string.IsNullOrWhiteSpace(HintsDictionary)
+            ? string.Empty
+            : $"Terms: {HintsDictionary.Trim()}";
     }
 
     /// <summary>

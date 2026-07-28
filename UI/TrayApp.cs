@@ -287,10 +287,6 @@ public class TrayApp : IDisposable
             ShowNotification("Лимит записи", $"Достигнут лимит {duration} сек", ToolTipIcon.Warning, 2000);
         };
 
-        _recorder.ChunkStarted += (s, chunkIndex) =>
-        {
-            _logger.Info($"Начат чанк #{chunkIndex}");
-        };
     }
 
     /// <summary>
@@ -402,13 +398,13 @@ public class TrayApp : IDisposable
 
         var duration = e.Duration.TotalSeconds;
         _logger.Info($"Запись завершена: длительность {duration:F1} сек");
-        var audioFiles = e.ChunkFiles.Count > 0 ? e.ChunkFiles : new List<string> { e.FilePath };
+        var audioFilePath = e.FilePath;
 
         // Слишком короткая запись — отбрасываем
         if (duration < 0.5)
         {
             InvokeUI(() => _overlay?.HideOverlay());
-            CleanupAudioFiles(audioFiles);
+            CleanupAudioFile(audioFilePath);
             return;
         }
 
@@ -421,17 +417,7 @@ public class TrayApp : IDisposable
 
         try
         {
-            WhisperResponse result;
-
-            if (e.HasMultipleChunks)
-            {
-                _logger.Info($"Обработка {e.ChunkFiles.Count} чанков...");
-                result = await _whisperService!.TranscribeChunksAsync(e.ChunkFiles);
-            }
-            else
-            {
-                result = await _whisperService!.TranscribeAsync(e.FilePath);
-            }
+            var result = await _whisperService!.TranscribeAsync(e.FilePath);
 
             _logger.Info($"Распознано ({result.Language}): \"{result.Text.Substring(0, Math.Min(100, result.Text.Length))}...\"");
 
@@ -464,9 +450,9 @@ public class TrayApp : IDisposable
             InvokeUI(() => _overlay?.HideOverlay());
 
             if (_config.SaveAudioFiles)
-                SaveAudioFiles(audioFiles, result.Text);
+                SaveAudioFile(audioFilePath, result.Text);
             else
-                CleanupAudioFiles(audioFiles);
+                CleanupAudioFile(audioFilePath);
         }
         catch (WhisperException ex)
         {
@@ -474,7 +460,7 @@ public class TrayApp : IDisposable
             InvokeUI(() => _overlay?.ShowError("Ошибка распознавания"));
             await Task.Delay(2000);
             InvokeUI(() => _overlay?.HideOverlay());
-            CleanupAudioFiles(audioFiles);
+            CleanupAudioFile(audioFilePath);
         }
         catch (Exception ex)
         {
@@ -482,7 +468,7 @@ public class TrayApp : IDisposable
             InvokeUI(() => _overlay?.ShowError("Ошибка"));
             await Task.Delay(2000);
             InvokeUI(() => _overlay?.HideOverlay());
-            CleanupAudioFiles(audioFiles);
+            CleanupAudioFile(audioFilePath);
         }
         finally
         {
@@ -552,9 +538,9 @@ public class TrayApp : IDisposable
     }
 
     /// <summary>
-    /// Сохранить аудио файлы
+    /// Сохранить аудио и транскрипт.
     /// </summary>
-    private void SaveAudioFiles(List<string> filePaths, string transcript)
+    private void SaveAudioFile(string filePath, string transcript)
     {
         try
         {
@@ -565,16 +551,11 @@ public class TrayApp : IDisposable
             var transcriptPath = Path.Combine(logDir, $"audio_{timestamp}.txt");
             File.WriteAllText(transcriptPath, transcript);
 
-            // Сохраняем аудио файлы
-            for (int i = 0; i < filePaths.Count; i++)
+            if (File.Exists(filePath))
             {
-                if (!File.Exists(filePaths[i])) continue;
-
-                var suffix = filePaths.Count > 1 ? $"_chunk{i:D3}" : "";
-                var newFileName = $"audio_{timestamp}{suffix}.wav";
+                var newFileName = $"audio_{timestamp}.wav";
                 var newPath = Path.Combine(logDir, newFileName);
-
-                File.Move(filePaths[i], newPath);
+                File.Move(filePath, newPath);
             }
 
             _logger.Info($"Аудио сохранено: {transcriptPath}");
@@ -586,23 +567,18 @@ public class TrayApp : IDisposable
     }
 
     /// <summary>
-    /// Удалить временные аудио файлы
+    /// Удалить временный аудиофайл.
     /// </summary>
-    private void CleanupAudioFiles(List<string> filePaths)
+    private static void CleanupAudioFile(string filePath)
     {
-        foreach (var filePath in filePaths)
+        try
         {
-            try
-            {
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
-            }
-            catch
-            {
-                // Игнорируем ошибки очистки
-            }
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+        }
+        catch
+        {
+            // Игнорируем ошибки очистки
         }
     }
 
@@ -658,7 +634,7 @@ public class TrayApp : IDisposable
             "YenSTT - Локальная утилита диктовки\n\n" +
             $"Версия: {Application.ProductVersion}\n\n" +
             $"Движок: faster-whisper (локально)\n" +
-            $"Модель: {_config.WhisperModel} / CPU int8\n" +
+            "Модель: small / CPU int8\n" +
             $"Горячая клавиша: {_config.HotkeyDisplay}\n" +
             $"Режим: {_config.Mode}\n\n" +
             "Аудио не покидает компьютер.",

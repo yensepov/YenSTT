@@ -27,6 +27,7 @@ public class ConfigManager
     public ConfigManager()
     {
         MigrateLegacyData();
+        RemoveObsoleteSecrets();
         _config = LoadOrCreateConfig();
     }
 
@@ -48,16 +49,30 @@ public class ConfigManager
                 if (config == null)
                     return AppConfig.CreateDefault();
 
-                // Cloud releases stored "whisper-1" here; YenSTT now supports local small only.
-                if (!string.Equals(config.WhisperModel, "small", StringComparison.OrdinalIgnoreCase))
+                var needsCleanup = new[]
                 {
-                    config.WhisperModel = "small";
-                    File.WriteAllText(ConfigPath, JsonConvert.SerializeObject(config, Formatting.Indented));
-                }
+                    "WhisperModel",
+                    "PythonExecutable",
+                    "WhisperPrompt",
+                    "LocalWhisperTimeoutSeconds",
+                    "EnableChunking",
+                    "ChunkSizeSeconds",
+                    "InsertAsPlainText",
+                    "AddSpaceBefore",
+                    "AddSpaceAfter",
+                    "AutoCopyOnFocusLost",
+                    "HotkeyDisplay"
+                }.Any(property => json.Contains($"\"{property}\"", StringComparison.Ordinal));
 
                 var legacyAudioPath = Path.Combine(LegacyAppDirectory, "audio_logs");
                 if (string.Equals(config.AudioLogPath, legacyAudioPath, StringComparison.OrdinalIgnoreCase))
+                {
                     config.AudioLogPath = Path.Combine(AppDirectory, "audio_logs");
+                    needsCleanup = true;
+                }
+
+                if (needsCleanup)
+                    File.WriteAllText(ConfigPath, JsonConvert.SerializeObject(config, Formatting.Indented));
 
                 return config;
             }
@@ -114,6 +129,9 @@ public class ConfigManager
 
         foreach (var file in Directory.GetFiles(source))
         {
+            if (string.Equals(Path.GetFileName(file), "secrets.dat", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             var destinationFile = Path.Combine(destination, Path.GetFileName(file));
             if (!File.Exists(destinationFile))
                 File.Copy(file, destinationFile);
@@ -121,6 +139,20 @@ public class ConfigManager
 
         foreach (var directory in Directory.GetDirectories(source))
             CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+    }
+
+    private static void RemoveObsoleteSecrets()
+    {
+        try
+        {
+            var secretsPath = Path.Combine(AppDirectory, "secrets.dat");
+            if (File.Exists(secretsPath))
+                File.Delete(secretsPath);
+        }
+        catch
+        {
+            // An obsolete credential file must not prevent the application from starting.
+        }
     }
 
     /// <summary>

@@ -15,10 +15,12 @@ public class WhisperResponse
 }
 
 /// <summary>
-/// Runs faster-whisper locally through a persistent Python worker.
+/// Runs faster-whisper locally through a persistent worker process.
 /// </summary>
 public sealed class WhisperService : IDisposable
 {
+    private const string ModelName = "small";
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(15);
     private readonly AppConfig _config;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
     private readonly ConcurrentQueue<string> _stderr = new();
@@ -49,7 +51,7 @@ public sealed class WhisperService : IDisposable
         );
         Logger.Instance.Info(
             $"Local Whisper: файл {fileInfo.Name}, {fileInfo.Length / 1024.0:F1} KB, " +
-            $"модель={_config.WhisperModel}, язык={_config.GetWhisperLanguageCode()}"
+            $"модель={ModelName}, язык={_config.GetWhisperLanguageCode()}"
         );
 
         var startedAt = Stopwatch.StartNew();
@@ -57,13 +59,13 @@ public sealed class WhisperService : IDisposable
         {
             Command = "transcribe",
             AudioPath = Path.GetFullPath(audioFilePath),
-            Model = _config.WhisperModel,
+            Model = ModelName,
             CacheDir = GetModelCacheDirectory(),
             Language = NullIfEmpty(_config.GetWhisperLanguageCode()),
             Prompt = NullIfEmpty(_config.GetEffectivePrompt())
         };
 
-        var response = await SendRequestAsync(request, TimeSpan.FromSeconds(_config.LocalWhisperTimeoutSeconds));
+        var response = await SendRequestAsync(request, RequestTimeout);
         if (string.IsNullOrWhiteSpace(response.Text))
             throw new WhisperException("Речь не распознана. Проверьте микрофон и длительность записи.");
 
@@ -73,34 +75,6 @@ public sealed class WhisperService : IDisposable
             Text = response.Text.Trim(),
             Language = response.Language,
             Duration = response.Duration
-        };
-    }
-
-    public async Task<WhisperResponse> TranscribeChunksAsync(List<string> audioFilePaths)
-    {
-        if (audioFilePaths.Count == 0)
-            throw new WhisperException("Нет аудиофайлов для обработки.");
-        if (audioFilePaths.Count == 1)
-            return await TranscribeAsync(audioFilePaths[0]);
-
-        var texts = new List<string>();
-        var totalDuration = 0f;
-        string? language = null;
-
-        for (var index = 0; index < audioFilePaths.Count; index++)
-        {
-            StatusChanged?.Invoke(this, $"Локальное распознавание {index + 1}/{audioFilePaths.Count}...");
-            var result = await TranscribeAsync(audioFilePaths[index]);
-            texts.Add(result.Text);
-            totalDuration += result.Duration ?? 0;
-            language ??= result.Language;
-        }
-
-        return new WhisperResponse
-        {
-            Text = NormalizeChunkJoin(string.Join(" ", texts)),
-            Language = language,
-            Duration = totalDuration
         };
     }
 
@@ -183,8 +157,6 @@ public sealed class WhisperService : IDisposable
         var candidates = new List<(string FileName, string? LauncherArgument, bool UsesPython)>();
         if (File.Exists(runtimePath))
             candidates.Add((runtimePath, null, false));
-        if (!string.IsNullOrWhiteSpace(_config.PythonExecutable))
-            candidates.Add((_config.PythonExecutable.Trim(), null, true));
         candidates.Add(("py", "-3", true));
         candidates.Add(("python", null, true));
 
@@ -242,8 +214,8 @@ public sealed class WhisperService : IDisposable
         }
 
         throw new WhisperException(
-            "Python 3 не найден. Установите Python и запустите install-local-whisper.bat.",
-            lastError ?? new InvalidOperationException("Python 3 is unavailable.")
+            "Встроенный модуль распознавания не найден или не запускается. Переустановите YenSTT.",
+            lastError ?? new InvalidOperationException("Bundled worker is unavailable.")
         );
     }
 
@@ -261,13 +233,6 @@ public sealed class WhisperService : IDisposable
         var cacheDirectory = GetModelCacheDirectory();
         return Directory.Exists(cacheDirectory) &&
             Directory.EnumerateFiles(cacheDirectory, "model.bin", SearchOption.AllDirectories).Any();
-    }
-
-    private static string NormalizeChunkJoin(string text)
-    {
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ");
-        text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+([.,!?;:)])", "$1");
-        return text.Trim();
     }
 
     private static string? NullIfEmpty(string? value) =>

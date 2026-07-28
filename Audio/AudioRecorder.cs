@@ -32,11 +32,6 @@ public class AudioRecorder : IDisposable
     private int _silenceFrames;
     private readonly int _silenceThresholdFrames;
 
-    // Поддержка чанков
-    private List<string> _chunkFiles = new();
-    private int _currentChunkIndex;
-    private TimeSpan _totalDuration;
-
     // Параметры записи для локального Whisper
     private const int SampleRate = 16000; // 16 kHz
     private const int Channels = 1; // Mono
@@ -71,11 +66,6 @@ public class AudioRecorder : IDisposable
     /// Событие достижения лимита записи
     /// </summary>
     public event EventHandler<int>? RecordingLimitReached;
-
-    /// <summary>
-    /// Событие начала нового чанка
-    /// </summary>
-    public event EventHandler<int>? ChunkStarted;
 
     /// <summary>
     /// Идёт ли запись
@@ -139,11 +129,6 @@ public class AudioRecorder : IDisposable
 
         try
         {
-            // Сбрасываем данные чанков
-            _chunkFiles.Clear();
-            _currentChunkIndex = 0;
-            _totalDuration = TimeSpan.Zero;
-
             // Определяем устройство
             int deviceNumber = 0;
             if (!string.IsNullOrEmpty(_config.SelectedMicrophoneId))
@@ -151,8 +136,8 @@ public class AudioRecorder : IDisposable
                 int.TryParse(_config.SelectedMicrophoneId, out deviceNumber);
             }
 
-            // Создаём первый файл
-            CreateNewChunkFile();
+            // Создаём файл записи
+            CreateAudioFile();
 
             // Настраиваем захват аудио
             _waveIn = new WaveInEvent
@@ -181,13 +166,8 @@ public class AudioRecorder : IDisposable
             Logger.Instance.Info($"Начата запись с микрофона: устройство {deviceNumber}");
             RecordingStarted?.Invoke(this, EventArgs.Empty);
 
-            // Запускаем таймеры
+            // Запускаем ограничение длительности
             StartMaxDurationTimer();
-
-            if (_config.EnableChunking)
-            {
-                StartChunkTimer();
-            }
         }
         catch (Exception ex)
         {
@@ -198,15 +178,14 @@ public class AudioRecorder : IDisposable
     }
 
     /// <summary>
-    /// Создать новый файл чанка
+    /// Создать временный WAV-файл.
     /// </summary>
-    private void CreateNewChunkFile()
+    private void CreateAudioFile()
     {
         _currentFilePath = Path.Combine(
             Path.GetTempPath(),
-            $"stt_chunk_{DateTime.Now:yyyyMMdd_HHmmss}_{_currentChunkIndex:D3}.wav"
+            $"yenstt_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav"
         );
-        _chunkFiles.Add(_currentFilePath);
     }
 
     /// <summary>
@@ -223,7 +202,7 @@ public class AudioRecorder : IDisposable
             _waveIn.StopRecording();
 
             var duration = DateTime.Now - _recordingStart;
-            Logger.Instance.Info($"Запись остановлена. Длительность: {duration.TotalSeconds:F1} сек, чанков: {_chunkFiles.Count}");
+            Logger.Instance.Info($"Запись остановлена. Длительность: {duration.TotalSeconds:F1} сек");
         }
         catch (Exception ex)
         {
@@ -272,7 +251,6 @@ public class AudioRecorder : IDisposable
     {
         var duration = DateTime.Now - _recordingStart;
         var filePath = _currentFilePath;
-        var chunkFiles = new List<string>(_chunkFiles);
 
         // Сначала закрываем writer (финализирует WAV заголовок)
         _waveWriter?.Flush();
@@ -285,38 +263,30 @@ public class AudioRecorder : IDisposable
         // Теперь освобождаем остальные ресурсы
         _maxDurationTimer?.Dispose();
         _maxDurationTimer = null;
-        _chunkTimer?.Dispose();
-        _chunkTimer = null;
         _waveIn?.Dispose();
         _waveIn = null;
 
         if (e.Exception != null)
         {
             Logger.Instance.Error("Ошибка при остановке записи", e.Exception);
-            CleanupChunkFiles(chunkFiles);
+            CleanupAudioFile(filePath);
             RecordingError?.Invoke(this, e.Exception);
         }
-        else if (chunkFiles.Count > 0 && File.Exists(chunkFiles[0]))
+        else if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
         {
-            // Логируем размеры файлов
-            foreach (var cf in chunkFiles)
+            try
             {
-                try
-                {
-                    var fi = new FileInfo(cf);
-                    Logger.Instance.Info($"Аудио файл: {fi.Name}, размер: {fi.Length} байт ({fi.Length / 1024.0:F1} KB)");
-                }
-                catch { }
+                var fileInfo = new FileInfo(filePath);
+                Logger.Instance.Info($"Аудио файл: {fileInfo.Name}, размер: {fileInfo.Length} байт ({fileInfo.Length / 1024.0:F1} KB)");
             }
+            catch { }
 
-            // Применяем VAD/обрезку тишины к последнему файлу
-            chunkFiles[chunkFiles.Count - 1] = ApplyVad(chunkFiles[chunkFiles.Count - 1]);
+            filePath = ApplyVad(filePath);
 
             RecordingCompleted?.Invoke(this, new RecordingCompletedEventArgs
             {
-                FilePath = chunkFiles.Count == 1 ? chunkFiles[0] : string.Empty,
-                Duration = duration,
-                ChunkFiles = chunkFiles
+                FilePath = filePath,
+                Duration = duration
             });
         }
         else
@@ -445,71 +415,9 @@ public class AudioRecorder : IDisposable
 
                 RecordingLimitReached?.Invoke(this, duration);
 
-                // Если чанкинг включён, продолжаем запись в новый файл
-                if (_config.EnableChunking)
-                {
-                    StartNextChunk();
-                }
-                else
-                {
-                    StopRecording();
-                }
+                StopRecording();
             }
         }, null, _config.MaxRecordingSeconds * 1000, Timeout.Infinite);
-    }
-
-    /// <summary>
-    /// Таймер для чанков (если размер чанка меньше максимальной длительности)
-    /// </summary>
-    private System.Threading.Timer? _chunkTimer;
-
-    private void StartChunkTimer()
-    {
-        if (_config.ChunkSizeSeconds >= _config.MaxRecordingSeconds)
-            return;
-
-        _chunkTimer?.Dispose();
-        _chunkTimer = new System.Threading.Timer(_ =>
-        {
-            if (_isRecording && _config.EnableChunking)
-            {
-                StartNextChunk();
-            }
-        }, null, _config.ChunkSizeSeconds * 1000, _config.ChunkSizeSeconds * 1000);
-    }
-
-    /// <summary>
-    /// Начать следующий чанк
-    /// </summary>
-    private void StartNextChunk()
-    {
-        try
-        {
-            // Сохраняем текущий файл
-            _waveWriter?.Dispose();
-            _waveWriter = null;
-
-            // Запоминаем длительность текущего чанка
-            _totalDuration += DateTime.Now - _recordingStart;
-
-            // Создаём новый чанк
-            _currentChunkIndex++;
-            CreateNewChunkFile();
-
-            // Создаём новый писатель
-            _waveWriter = new WaveFileWriter(_currentFilePath!, _waveIn!.WaveFormat);
-
-            Logger.Instance.Info($"Начат чанк #{_currentChunkIndex}");
-            ChunkStarted?.Invoke(this, _currentChunkIndex);
-
-            // Сбрасываем таймер начала записи для отслеживания длительности чанка
-            _recordingStart = DateTime.Now;
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.Error("Ошибка при создании нового чанка", ex);
-            StopRecording();
-        }
     }
 
     /// <summary>
@@ -520,9 +428,6 @@ public class AudioRecorder : IDisposable
         _maxDurationTimer?.Dispose();
         _maxDurationTimer = null;
 
-        _chunkTimer?.Dispose();
-        _chunkTimer = null;
-
         _waveWriter?.Dispose();
         _waveWriter = null;
 
@@ -531,23 +436,18 @@ public class AudioRecorder : IDisposable
     }
 
     /// <summary>
-    /// Удалить файлы чанков при ошибке
+    /// Удалить временный аудиофайл при ошибке.
     /// </summary>
-    private void CleanupChunkFiles(List<string> files)
+    private static void CleanupAudioFile(string? filePath)
     {
-        foreach (var file in files)
+        try
         {
-            try
-            {
-                if (File.Exists(file))
-                {
-                    File.Delete(file);
-                }
-            }
-            catch
-            {
-                // Игнорируем ошибки удаления
-            }
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                File.Delete(filePath);
+        }
+        catch
+        {
+            // Игнорируем ошибки удаления
         }
     }
 
@@ -580,7 +480,7 @@ public class MicrophoneInfo
 public class RecordingCompletedEventArgs : EventArgs
 {
     /// <summary>
-    /// Путь к файлу (если один чанк)
+    /// Путь к временному WAV-файлу.
     /// </summary>
     public string FilePath { get; set; } = string.Empty;
 
@@ -589,13 +489,4 @@ public class RecordingCompletedEventArgs : EventArgs
     /// </summary>
     public TimeSpan Duration { get; set; }
 
-    /// <summary>
-    /// Пути к файлам чанков (если включён режим чанкинга)
-    /// </summary>
-    public List<string> ChunkFiles { get; set; } = new();
-
-    /// <summary>
-    /// Есть ли несколько чанков
-    /// </summary>
-    public bool HasMultipleChunks => ChunkFiles.Count > 1;
 }
