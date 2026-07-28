@@ -3,6 +3,22 @@ import os
 import sys
 import traceback
 
+
+def configure_stdio():
+    streams = (
+        (sys.stdin, "utf-8-sig"),
+        (sys.stdout, "utf-8"),
+        (sys.stderr, "utf-8"),
+    )
+    for stream, encoding in streams:
+        try:
+            stream.reconfigure(encoding=encoding, errors="replace")
+        except (AttributeError, OSError):
+            pass
+
+
+configure_stdio()
+
 try:
     from faster_whisper import WhisperModel
     from importlib.metadata import version
@@ -95,6 +111,10 @@ def handle(request):
 def main():
     for line in sys.stdin:
         try:
+            # Some launchers may prepend a UTF-8 BOM to the first request.
+            line = line.lstrip("\ufeff").strip()
+            if not line:
+                continue
             request = json.loads(line)
             response = handle(request)
             respond(response)

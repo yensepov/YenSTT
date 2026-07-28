@@ -4,6 +4,11 @@ All notable changes to YenSTT are documented here. The project follows semantic 
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed UTF-8 communication with the bundled worker, which prevented transcription on Windows.
+- Preserved Cyrillic text returned by faster-whisper.
+
 ## [1.0.0] - 2026-07-28
 
 ### Added
