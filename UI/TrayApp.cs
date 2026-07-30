@@ -634,7 +634,7 @@ public class TrayApp : IDisposable
             "YenSTT - Локальная утилита диктовки\n\n" +
             $"Версия: {Application.ProductVersion}\n\n" +
             $"Движок: faster-whisper (локально)\n" +
-            "Модель: small / CPU int8\n" +
+            $"Модель: {WhisperModels.Normalize(_config.WhisperModel)} / CPU int8\n" +
             $"Горячая клавиша: {_config.HotkeyDisplay}\n" +
             $"Режим: {_config.Mode}\n\n" +
             "Аудио не покидает компьютер.",

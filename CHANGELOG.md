@@ -8,8 +8,9 @@ All notable changes to YenSTT are documented here. The project follows semantic 
 
 ### Added
 
-- The Windows installer now offers to download the `small` model during setup, enabled by default.
-- Added a worker command for preloading the model into the YenSTT cache.
+- The Windows installer now offers `tiny`, `base`, `small`, `medium`, and `large-v3` with quality, storage, and memory guidance; `small` is recommended by default.
+- Added model selection to the application settings and persisted the installer choice into YenSTT configuration.
+- Added a worker command for preloading any supported model into the YenSTT cache.
 
 ## [1.0.0] - 2026-07-28
 

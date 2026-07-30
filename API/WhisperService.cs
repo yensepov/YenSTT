@@ -19,7 +19,6 @@ public class WhisperResponse
 /// </summary>
 public sealed class WhisperService : IDisposable
 {
-    private const string ModelName = "small";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(15);
     private readonly AppConfig _config;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
@@ -43,15 +42,17 @@ public sealed class WhisperService : IDisposable
         if (fileInfo.Length < 1024)
             throw new WhisperException($"Аудиофайл слишком маленький ({fileInfo.Length} байт).");
 
+        var model = WhisperModels.Get(_config.WhisperModel);
+
         StatusChanged?.Invoke(
             this,
-            IsModelCached()
-                ? "Локальное распознавание (faster-whisper small)..."
-                : "Скачивание модели small (~464 МБ), затем распознавание..."
+            IsModelCached(model.Name)
+                ? $"Локальное распознавание (faster-whisper {model.Name})..."
+                : $"Скачивание модели {model.Name} ({model.DownloadSize}), затем распознавание..."
         );
         Logger.Instance.Info(
             $"Local Whisper: файл {fileInfo.Name}, {fileInfo.Length / 1024.0:F1} KB, " +
-            $"модель={ModelName}, язык={_config.GetWhisperLanguageCode()}"
+            $"модель={model.Name}, язык={_config.GetWhisperLanguageCode()}"
         );
 
         var startedAt = Stopwatch.StartNew();
@@ -59,7 +60,7 @@ public sealed class WhisperService : IDisposable
         {
             Command = "transcribe",
             AudioPath = Path.GetFullPath(audioFilePath),
-            Model = ModelName,
+            Model = model.Name,
             CacheDir = GetModelCacheDirectory(),
             Language = NullIfEmpty(_config.GetWhisperLanguageCode()),
             Prompt = NullIfEmpty(_config.GetEffectivePrompt())
@@ -109,7 +110,7 @@ public sealed class WhisperService : IDisposable
                 StopWorker();
                 throw new WhisperException(
                     "Локальное распознавание превысило время ожидания. " +
-                    "При первом запуске модель small может долго скачиваться."
+                    $"При первом запуске модель {WhisperModels.Normalize(_config.WhisperModel)} может долго скачиваться."
                 );
             }
 
@@ -228,11 +229,14 @@ public sealed class WhisperService : IDisposable
         );
     }
 
-    private static bool IsModelCached()
+    private static bool IsModelCached(string modelName)
     {
-        var cacheDirectory = GetModelCacheDirectory();
-        return Directory.Exists(cacheDirectory) &&
-            Directory.EnumerateFiles(cacheDirectory, "model.bin", SearchOption.AllDirectories).Any();
+        var modelDirectory = Path.Combine(
+            GetModelCacheDirectory(),
+            $"models--Systran--faster-whisper-{modelName}"
+        );
+        return Directory.Exists(modelDirectory) &&
+            Directory.EnumerateFiles(modelDirectory, "model.bin", SearchOption.AllDirectories).Any();
     }
 
     private static string? NullIfEmpty(string? value) =>

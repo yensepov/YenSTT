@@ -58,6 +58,11 @@ public class AppConfig
     #region Local Recognition Settings
 
     /// <summary>
+    /// faster-whisper model used for local recognition.
+    /// </summary>
+    public string WhisperModel { get; set; } = WhisperModels.DefaultName;
+
+    /// <summary>
     /// Язык распознавания
     /// </summary>
     public RecognitionLanguage Language { get; set; } = RecognitionLanguage.Russian;

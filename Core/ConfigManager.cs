@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Microsoft.Win32;
 
 namespace YenSTT.Core;
 
@@ -29,6 +30,7 @@ public class ConfigManager
         MigrateLegacyData();
         RemoveObsoleteSecrets();
         _config = LoadOrCreateConfig();
+        ApplyInstallerModelSelection();
     }
 
     public AppConfig Config => _config;
@@ -51,7 +53,6 @@ public class ConfigManager
 
                 var needsCleanup = new[]
                 {
-                    "WhisperModel",
                     "PythonExecutable",
                     "WhisperPrompt",
                     "LocalWhisperTimeoutSeconds",
@@ -63,6 +64,13 @@ public class ConfigManager
                     "AutoCopyOnFocusLost",
                     "HotkeyDisplay"
                 }.Any(property => json.Contains($"\"{property}\"", StringComparison.Ordinal));
+
+                var normalizedModel = WhisperModels.Normalize(config.WhisperModel);
+                if (!string.Equals(config.WhisperModel, normalizedModel, StringComparison.Ordinal))
+                {
+                    config.WhisperModel = normalizedModel;
+                    needsCleanup = true;
+                }
 
                 var legacyAudioPath = Path.Combine(LegacyAppDirectory, "audio_logs");
                 if (string.Equals(config.AudioLogPath, legacyAudioPath, StringComparison.OrdinalIgnoreCase))
@@ -152,6 +160,25 @@ public class ConfigManager
         catch
         {
             // An obsolete credential file must not prevent the application from starting.
+        }
+    }
+
+    private void ApplyInstallerModelSelection()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\YenSTT", writable: true);
+            var pendingModel = key?.GetValue("PendingModel") as string;
+            if (!WhisperModels.IsSupported(pendingModel))
+                return;
+
+            _config.WhisperModel = WhisperModels.Normalize(pendingModel);
+            key!.DeleteValue("PendingModel", throwOnMissingValue: false);
+            Save();
+        }
+        catch
+        {
+            // Installer handoff is best-effort; the saved/default model remains usable.
         }
     }
 

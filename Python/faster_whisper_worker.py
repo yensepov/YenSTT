@@ -33,6 +33,7 @@ except Exception as exc:  # Keep the protocol alive to return a useful error.
 
 _model = None
 _model_key = None
+SUPPORTED_MODELS = ("tiny", "base", "small", "medium", "large-v3")
 
 
 def respond(payload):
@@ -41,6 +42,9 @@ def respond(payload):
 
 def get_model(model_name, cache_dir):
     global _model, _model_key
+
+    if model_name not in SUPPORTED_MODELS:
+        raise ValueError(f"Unsupported model: {model_name}")
 
     if IMPORT_ERROR is not None:
         raise RuntimeError(
@@ -125,22 +129,27 @@ def main():
             respond({"ok": False, "error": str(exc)})
 
 
-def download_model(cache_dir):
-    get_model("small", os.path.abspath(cache_dir))
-    respond({"ok": True, "model": "small", "cache_dir": os.path.abspath(cache_dir)})
+def download_model(model_name, cache_dir):
+    cache_dir = os.path.abspath(cache_dir)
+    get_model(model_name, cache_dir)
+    respond({"ok": True, "model": model_name, "cache_dir": cache_dir})
 
 
 def run_command_line():
-    if len(sys.argv) == 3 and sys.argv[1] == "--download-model":
+    if len(sys.argv) == 4 and sys.argv[1] == "--download-model":
         try:
-            download_model(sys.argv[2])
+            download_model(sys.argv[2], sys.argv[3])
             return 0
         except Exception as exc:
             print(traceback.format_exc(), file=sys.stderr, flush=True)
             respond({"ok": False, "error": str(exc)})
             return 1
 
-    print("Usage: faster-whisper-worker.exe --download-model <cache-directory>", file=sys.stderr)
+    print(
+        "Usage: faster-whisper-worker.exe --download-model "
+        "<tiny|base|small|medium|large-v3> <cache-directory>",
+        file=sys.stderr,
+    )
     return 2
 
 

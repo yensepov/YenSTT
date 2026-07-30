@@ -12,6 +12,8 @@ public class SettingsForm : Form
     private readonly AppConfig _config;
 
     // Local recognition controls
+    private ComboBox? _modelComboBox;
+    private Label? _modelDetailsLabel;
     private TextBox? _hintsTextBox;
 
     // Recording Controls
@@ -60,7 +62,7 @@ public class SettingsForm : Form
     private void InitializeComponents()
     {
         Text = "Настройки YenSTT";
-        Size = new Size(620, 780);
+        Size = new Size(620, 815);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -79,21 +81,31 @@ public class SettingsForm : Form
         const int groupWidth = 580;
 
         // === Local Recognition Group ===
-        var localGroup = CreateGroupBox("Распознавание", 10, y, groupWidth, 115);
+        var localGroup = CreateGroupBox("Распознавание", 10, y, groupWidth, 150);
 
-        var modeLabel = new Label
+        CreateLabel("Модель:", 15, 24, 90, localGroup);
+        _modelComboBox = new ComboBox
         {
-            Text = "faster-whisper small · CPU int8",
-            Location = new Point(15, 24),
-            Size = new Size(300, 20),
-            ForeColor = Color.DarkGreen,
+            Location = new Point(105, 19),
+            Size = new Size(270, 23),
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Parent = localGroup
+        };
+        _modelComboBox.Items.AddRange(WhisperModels.All.Cast<object>().ToArray());
+        _modelComboBox.SelectedIndexChanged += (_, _) => UpdateModelDetails();
+
+        _modelDetailsLabel = new Label
+        {
+            Location = new Point(105, 47),
+            Size = new Size(450, 38),
+            ForeColor = Color.DimGray,
             Parent = localGroup
         };
 
         var privacyLabel = new Label
         {
             Text = "Распознавание выполняется локально. Аудио не отправляется в интернет.",
-            Location = new Point(15, 47),
+            Location = new Point(15, 88),
             Size = new Size(540, 20),
             ForeColor = Color.DimGray,
             Parent = localGroup
@@ -108,17 +120,17 @@ public class SettingsForm : Form
         };
         _testLocalButton.Click += TestLocalButton_Click;
 
-        CreateLabel("Словарь терминов:", 15, 80, 100, localGroup);
+        CreateLabel("Словарь терминов:", 15, 120, 100, localGroup);
         _hintsTextBox = new TextBox
         {
-            Location = new Point(115, 77),
+            Location = new Point(115, 117),
             Size = new Size(440, 23),
             PlaceholderText = "Jira, Confluence, API, JSON...",
             Parent = localGroup
         };
 
         mainPanel.Controls.Add(localGroup);
-        y += 125;
+        y += 160;
 
         // === Recording Settings Group ===
         var recGroup = CreateGroupBox("Настройки записи", 10, y, groupWidth, 175);
@@ -425,6 +437,9 @@ public class SettingsForm : Form
     private void LoadSettings()
     {
         // Local recognition
+        var model = WhisperModels.Get(_config.WhisperModel);
+        _modelComboBox!.SelectedItem = WhisperModels.All.First(item => item.Name == model.Name);
+        UpdateModelDetails();
         _hintsTextBox!.Text = _config.HintsDictionary ?? "";
 
         // Language
@@ -467,6 +482,8 @@ public class SettingsForm : Form
     private void SaveSettings()
     {
         // Local recognition
+        _config.WhisperModel = (_modelComboBox!.SelectedItem as WhisperModelInfo)?.Name
+            ?? WhisperModels.DefaultName;
         _config.HintsDictionary = _hintsTextBox!.Text.Trim();
 
         // Language
@@ -525,7 +542,11 @@ public class SettingsForm : Form
 
         try
         {
-            var tempConfig = new AppConfig();
+            var tempConfig = new AppConfig
+            {
+                WhisperModel = (_modelComboBox!.SelectedItem as WhisperModelInfo)?.Name
+                    ?? WhisperModels.DefaultName
+            };
             using var service = new API.WhisperService(tempConfig);
             var version = await service.CheckAvailabilityAsync();
             _statusLabel.Text = $"Готово: faster-whisper {version}";
@@ -541,6 +562,16 @@ public class SettingsForm : Form
             _testLocalButton.Enabled = true;
             _testLocalButton.Text = "Проверить движок";
         }
+    }
+
+    private void UpdateModelDetails()
+    {
+        if (_modelDetailsLabel == null)
+            return;
+
+        var model = _modelComboBox?.SelectedItem as WhisperModelInfo
+            ?? WhisperModels.Get(WhisperModels.DefaultName);
+        _modelDetailsLabel.Text = $"{model.DownloadSize} · {model.Details} · CPU int8";
     }
 
     private void SaveButton_Click(object? sender, EventArgs e)
