@@ -10,7 +10,7 @@
     <Product>YenSTT</Product>
     <Title>YenSTT</Title>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>yensepov</Authors>
     <Description>Private local speech-to-text utility powered by faster-whisper</Description>
     <Copyright>Copyright © 2026 yensepov contributors</Copyright>

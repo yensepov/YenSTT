@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.1",
     [switch]$SkipRuntime
 )
 
@@ -40,8 +40,12 @@ if (-not $iscc) {
 & $iscc "/DMyAppVersion=$Version" (Join-Path $projectRoot "installer\YenSTT.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
 
+$expectedAssetNames = @(
+    "YenSTT-Setup-v$Version-win-x64.exe",
+    "YenSTT-v$Version-win-x64-portable.zip"
+)
 $assets = Get-ChildItem -LiteralPath $release -File |
-    Where-Object { $_.Extension -in ".exe", ".zip" }
+    Where-Object { $_.Name -in $expectedAssetNames }
 $checksums = foreach ($asset in $assets) {
     $hash = Get-FileHash -LiteralPath $asset.FullName -Algorithm SHA256
     "$($hash.Hash.ToLowerInvariant())  $($asset.Name)"

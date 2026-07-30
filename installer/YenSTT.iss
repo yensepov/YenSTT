@@ -1,6 +1,6 @@
 #define MyAppName "YenSTT"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "1.0.1"
 #endif
 #define MyAppPublisher "yensepov"
 #define MyAppURL "https://github.com/yensepov/YenSTT"
@@ -42,9 +42,18 @@ VersionInfoCopyright=Copyright (c) 2026 yensepov contributors
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[CustomMessages]
+russian.ModelTask=Скачать модель распознавания small сейчас (~464 МБ, рекомендуется)
+russian.ModelGroup=Локальная модель:
+russian.ModelStatus=Скачивание и подготовка модели faster-whisper small... Это может занять несколько минут.
+english.ModelTask=Download the small recognition model now (~464 MB, recommended)
+english.ModelGroup=Local model:
+english.ModelStatus=Downloading and preparing the faster-whisper small model... This may take several minutes.
+
 [Tasks]
 Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Ярлыки:"; Flags: unchecked
 Name: "startup"; Description: "Запускать YenSTT вместе с Windows"; GroupDescription: "Автозапуск:"; Flags: unchecked
+Name: "downloadmodel"; Description: "{cm:ModelTask}"; GroupDescription: "{cm:ModelGroup}"; Flags: checkedonce
 
 [Files]
 Source: "..\publish\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -58,6 +67,7 @@ Name: "{autodesktop}\YenSTT"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopi
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "YenSTT"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
+Filename: "{app}\Runtime\faster-whisper-worker.exe"; Parameters: "--download-model ""{userappdata}\YenSTT\models"""; StatusMsg: "{cm:ModelStatus}"; Flags: runhidden waituntilterminated logoutput; Tasks: downloadmodel
 Filename: "{app}\{#MyAppExeName}"; Description: "Запустить YenSTT"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

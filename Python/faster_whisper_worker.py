@@ -44,7 +44,7 @@ def get_model(model_name, cache_dir):
 
     if IMPORT_ERROR is not None:
         raise RuntimeError(
-            "faster-whisper is not installed. Run install-local-whisper.bat. "
+            "faster-whisper is not available in this runtime. "
             f"Details: {IMPORT_ERROR}"
         )
 
@@ -97,7 +97,7 @@ def handle(request):
     if command == "ping":
         if IMPORT_ERROR is not None:
             raise RuntimeError(
-                "faster-whisper is not installed. Run install-local-whisper.bat. "
+                "faster-whisper is not available in this runtime. "
                 f"Details: {IMPORT_ERROR}"
             )
         return {"ok": True, "version": FASTER_WHISPER_VERSION}
@@ -125,5 +125,26 @@ def main():
             respond({"ok": False, "error": str(exc)})
 
 
+def download_model(cache_dir):
+    get_model("small", os.path.abspath(cache_dir))
+    respond({"ok": True, "model": "small", "cache_dir": os.path.abspath(cache_dir)})
+
+
+def run_command_line():
+    if len(sys.argv) == 3 and sys.argv[1] == "--download-model":
+        try:
+            download_model(sys.argv[2])
+            return 0
+        except Exception as exc:
+            print(traceback.format_exc(), file=sys.stderr, flush=True)
+            respond({"ok": False, "error": str(exc)})
+            return 1
+
+    print("Usage: faster-whisper-worker.exe --download-model <cache-directory>", file=sys.stderr)
+    return 2
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        raise SystemExit(run_command_line())
     main()

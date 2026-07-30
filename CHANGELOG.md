@@ -4,6 +4,15 @@ All notable changes to YenSTT are documented here. The project follows semantic 
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-30
+
+### Added
+
+- The Windows installer now offers to download the `small` model during setup, enabled by default.
+- Added a worker command for preloading the model into the YenSTT cache.
+
+## [1.0.0] - 2026-07-28
+
 ### Fixed
 
 - Fixed UTF-8 communication with the bundled worker, which prevented transcription on Windows.
@@ -14,8 +23,6 @@ All notable changes to YenSTT are documented here. The project follows semantic 
 - Simplified settings for the fixed local `small` model and removed obsolete cloud/Python options.
 - Removed the unreliable recording chunk mode and hidden legacy insertion flags.
 - Removed migrated API credential files that YenSTT no longer uses.
-
-## [1.0.0] - 2026-07-28
 
 ### Added
 
@@ -32,5 +39,6 @@ All notable changes to YenSTT are documented here. The project follows semantic 
 - Removed OpenAI Whisper API transcription and cloud LLM post-processing.
 - Audio remains on the local computer.
 
-[Unreleased]: https://github.com/yensepov/YenSTT/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/yensepov/YenSTT/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/yensepov/YenSTT/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/yensepov/YenSTT/releases/tag/v1.0.0
